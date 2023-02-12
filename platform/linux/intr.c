@@ -58,3 +58,37 @@ int intr_request_irq(unsigned int irq, int (*handler)(unsigned int irq, void *de
 int intr_raise_irq(unsigned int irq) {
   return pthread_kill(tid, (int)irq); // 割り込み処理用のスレッドにシグナルを送信
 }
+
+static void* intr_thread(void *arg) {
+  int terminate = 0, sig, err;
+  struct irq_entry *entry;
+
+  debugf("start...");
+  pthread_barrier_wait(&barrier);
+
+  while(!terminate) {
+    // sigmaskに登録されているシグナル（今回では，割り込みとしてみなすもの）が発生するまで待機．
+    // cf) https://docs.oracle.com/cd/E19455-01/806-2732/gen-75415/index.html
+    err = sigwait(&sigmask, &sig);
+    if (err) {
+      errorf("sigwait() %s", strerror(err));
+      break;
+    }
+
+    switch (sig) {
+      case SIGHUP:
+        terminate = 1;
+        break;
+      default:
+        for (entry=irqs;entry;entry=entry->next) {
+          if (entry->irq == (unsigned int)sig) {
+            debugf("ifq=%d, name=%s", entry->irq, entry->name);
+            entry->handler(entry->irq, entry->dev);
+          }
+        }
+        break;
+    }
+  }
+  debugf("terminated");
+  return NULL;
+}
