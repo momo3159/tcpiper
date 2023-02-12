@@ -28,7 +28,7 @@ struct net_device {
   unsigned int index;
   char name[IFNAMSIZ];
   uint16_t type; // デバイスの種別(ループバック, Ethernet, ...)
-  uint16_t mtu; // Maximum Transmission Unit. デバイスごとに異なるのか
+  uint16_t mtu; // Maximum Transmission Unit. プロトコルなどによってサイズは異なる．
   uint16_t flags; // UP, DOWN, ...
   uint16_t hlen; // header length
   uint16_t alen; // address length
