@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
-
+#include "platform.h"
 #include "util.h"
 #include "net.h"
 
 #define DUMMY_MTU UINT16_MAX
+#define DUMMY_IRQ INTR_IRQ_BASE
 
 static int dummy_transmit(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst) {
   debugf("dev=%s, type=%0x04x, len=%zu", dev->name, type, len);
@@ -37,6 +38,7 @@ struct net_device* dummy_init(void) {
     errorf("net_device_register() failed");
     return NULL;
   }
+  intr_request_irq(DUMMY_IRQ, dummy_isr, INTR_IRQ_SHARED, dev->name, dev);
 
   debugf("initialized, dev=%s", dev->name);
   return dev;
