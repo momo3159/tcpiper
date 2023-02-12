@@ -95,7 +95,6 @@ struct net_device *loopback_init(void) {
     return NULL;
   }
 
-
   lo = memory_alloc(sizeof(*lo));
   if (!lo) {
     errorf("memory_alloc() failure");
@@ -111,6 +110,7 @@ struct net_device *loopback_init(void) {
   dev->hlen = 0;
   dev->alen = 0;
   dev->priv = lo;
+  dev->ops = &loopback_ops;
 
   if (net_device_register(dev) == -1) {
     errorf("net_device_register() failed");
