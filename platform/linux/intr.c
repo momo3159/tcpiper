@@ -92,3 +92,36 @@ static void* intr_thread(void *arg) {
   debugf("terminated");
   return NULL;
 }
+
+int intr_run(void) {
+  int err = pthread_sigmask(SIG_BLOCK, &sigmask, NULL);
+  if (err) {
+    errorf("pthread_sigmask() %s", strerror(err));
+    return -1;
+  }
+  err = pthread_create(&tid, NULL, intr_thread, NULL);
+  if (err) {
+    errorf("pthread_create() %s", strerror(err));
+    return -1;
+  }
+
+  pthread_barrier_wait(&barrier);
+  return 0;
+}
+
+void intr_shutdown(void) {
+  if (pthread_equal(tid, pthread_self()) != 0) {
+    return;
+  }
+
+  pthread_kill(tid, SIGHUP);
+  pthread_join(tid, NULL);
+}
+
+int intr_init(void) {
+  tid = pthread_self();
+  pthread_barrier_init(&barrier, NULL, 2);
+  sigemptyset(&sigmask);
+  sigaddset(&sigmask, SIGHUP); // 割り込み処理スレッドに終了を通知する
+  return 0;
+}
