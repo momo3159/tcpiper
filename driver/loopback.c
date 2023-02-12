@@ -58,7 +58,26 @@ static int loopback_transmit(struct net_device *dev, uint16_t type, const uint8_
 }
 
 static int loopback_isr(unsigned int irq, void *id) {
-  debugf("irq=%u, dev=%s", irq, ((struct net_device*)id)->name);
+  struct net_device *dev;
+  struct loopback_queue_entry *entry;
+
+  dev = (struct net_device *)id;
+  mutex_lock(&PRIV(dev)->mutex);
+  while(1) {
+    entry = queue_pop(&PRIV(dev)->queue);
+    if (!entry) {
+      break;
+    }
+
+    debugf("queue poped (num:%u), dev=%s, type=0x%04x, len=%zd", PRIV(dev)->queue.num, dev->name, entry->type, entry->len);
+    debugdump(entry->data, entry->len);
+    // 送信割り込みハンドラ内でデータの受信処理を呼び出す（ループバック）
+    net_input_handler(entry->type, entry->data, entry->len, dev);
+
+    memory_free(entry);
+  }
+
+  mutex_unlock(&PRIV(dev)->mutex);
   return 0;
 }
 
