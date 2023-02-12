@@ -13,6 +13,8 @@ static int dummy_transmit(struct net_device *dev, uint16_t type, const uint8_t *
   debugdump(data, len);
 
   // 送信時に何もしない→データを破棄する
+static int dummy_isr(unsigned int irq, void *id) {
+  debugf("irq=%u, dev=%s", irq, ((struct net_device*)id)->name);
   return 0;
 }
 
