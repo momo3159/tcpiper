@@ -7,20 +7,53 @@
 #include "net.h"
 
 #define LOOPBACK_MTU UINT16_MAX
+#define LOOPBACK_QUEUE_LIMIT 16
 #define LOOPBACK_IRQ (INTR_IRQ_BASE+1)
+#define PRIV(x) ((struct loopback *)x->priv)
 
 // ループバックデバイスのドライバで使用するプライベートなデータ
 struct loopback {
   int irq;
   mutex_t mutex;
-  struct queue_head queue;
+  struct queue_head queue; // デバイスドライバが持つバッファ
+};
+
+struct loopback_queue_entry {
+  uint16_t type;
+  size_t len;
+  uint8_t data[];
 };
 
 static int loopback_transmit(struct net_device *dev, uint16_t type, const uint8_t *data, size_t len, const void *dst) {
-  debugf("dev=%s, type~%0x04x, len=%zu", dev->name, type, len);
+  struct loopback_queue_entry *entry;
+  unsigned int num;
+
+  mutex_lock(&PRIV(dev)->mutex);
+
+  if (PRIV(dev)->queue.num >= LOOPBACK_QUEUE_LIMIT) {
+    mutex_unlock(&PRIV(dev)->mutex);
+    errorf("queue is full");
+    return -1;
+  }
+
+  entry = memory_alloc(sizeof(*entry) + len);
+  if (!entry) {
+    mutex_unlock(&PRIV(dev)->mutex);
+    errorf("memory_alloc() failed");
+    return -1;
+  }
+
+  entry->type = type;
+  entry->len = len;
+  memcpy(entry->data, data, len);
+  queue_push(&PRIV(dev)->queue, entry);
+  num = PRIV(dev)->queue.num;
+  mutex_unlock(&PRIV(dev)->mutex);
+
+  debugf("queue pushed (num:%u), dev=%s, type=0x%04x, len=%zd", num, dev->name, type, len);
   debugdump(data, len);
 
-  intr_raise_irq(LOOPBACK_IRQ);
+  intr_raise_irq(PRIV(dev)->irq);
   return 0;
 }
 
